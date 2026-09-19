@@ -55,23 +55,31 @@ activated. Both launchers default to `pip install --no-deps -e .`, which does
 not install missing dependencies; prepare the environment on every node first.
 
 ```bash
-# 0. Compose-check first — use the entrypoint paired with your chosen recipe
+# Compose-check first — use the entrypoint paired with your chosen recipe
 python -m unirl.train_diffusion --config-name=diffusion/sd3/sd3_trainside --cfg job --resolve
+```
 
-# 1. Single node
+```bash
+# Choose ONE launch command below for your selected recipe and prepared environment.
+# These examples are alternatives, not a sequence to execute.
+
+# Single node
 bash examples/run_experiment_single_node.sh diffusion/sd3/sd3_trainside
 ENTRY=train_ar bash examples/run_experiment_single_node.sh ar/qwen_vl_grpo_geo3k_mc_4x8
+# SFT: set SFT_DATA to the training manifest.
 ENTRY=train_sft bash examples/run_experiment_single_node.sh sft/qwen3_sft
 ENTRY=train_pe  bash examples/run_experiment_single_node.sh pe/pe_trainside_pickscore
 ENTRY=train_unified_model bash examples/run_experiment_single_node.sh unified_model/hi3_vllmomni
 ENTRY=train_agentic bash examples/run_experiment_single_node.sh deep_research/deep_research_search_judge
+# Async AR: SGLang environment; set DATA_PATH to the training data.
 ENTRY=train_async_ar bash examples/run_experiment_single_node.sh ar/qwen3_grpo_4b_base_dapo_sglang_async
+# Async diffusion: vLLM-Omni environment; set BAGEL_PATH to the model checkpoint.
 ENTRY=train_async_diffusion bash examples/run_experiment_single_node.sh diffusion/bagel/bagel_vllmomni_async
 
-# 2. Multi-node
+# Multi-node alternative
 bash examples/run_experiment_multinode.sh diffusion/sd3/sd3_sglang_rollout_colocate
 
-# 3. Or invoke an entrypoint directly, without the launchers
+# Or invoke an entrypoint directly, without the launchers
 python -m unirl.train_diffusion --config-name=diffusion/sd3/sd3_trainside num_devices=8
 ```
 
@@ -92,11 +100,11 @@ those variables; use Hydra overrides for literal values, for example
 The mooncake-backed recipe (`*_tq_mooncake`) needs its metadata server up first —
 start it on the head node with `bash examples/mooncake_master.sh start` before launching.
 
-To save and resume checkpoints and export them to Hugging Face, append the
-`+save_interval` / `+save_dir` / `+load_dir` overrides
-(diffusion/ar/sft/pe/unified/agentic trainers; the hi3 meta-init recipe is not
-yet supported) — the full
-train → resume → export → upload lifecycle is in
+To save checkpoints, append `++save_interval=100 ++save_dir=checkpoints`;
+to resume, append `++load_dir=<checkpoint-dir>`. The `++` syntax adds a missing
+key or overrides an existing one, including `save_interval` in SFT recipes.
+This applies to diffusion/ar/sft/pe/unified/agentic trainers; the hi3 meta-init
+recipe is not yet supported. The full train → resume → export → upload lifecycle is in
 [Checkpointing](../unirl/trainer/README.md#checkpointing).
 
 ## WAN2.1 UCF-101 full-transformer SFT

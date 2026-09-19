@@ -7,7 +7,8 @@ commands from the repository root. The examples use Python 3.12.
 
 The `vllm` and `sglang` extras have mutually exclusive PyTorch stacks — use a
 separate virtual environment for each and do not install `--all-extras`.
-FastVideo is an additional opt-in engine listed under [Extras](#extras).
+FastVideo is a declared engine extra with a
+[known installation blocker](#fastvideo-installation-blocker).
 
 | Engine extra | PyTorch | CUDA |
 |---|---|---|
@@ -22,8 +23,9 @@ does not configure the library search path.
 
 The commands below use uv so that the CUDA wheel index and dependency overrides
 in `pyproject.toml` apply. Plain pip does not automatically use `[tool.uv]`
-settings. The base package does not include torch; `train` and `infer` alone do
-not provide a complete training environment.
+settings. The base dependencies do not pin an engine-specific PyTorch/CUDA
+stack. Installing only `train` or `infer` does not establish compatibility with
+a particular rollout engine.
 
 ## vllm-omni
 
@@ -65,20 +67,14 @@ uv pip install -e ".[sglang,train,infer]" --prerelease=allow
 |---|---|---|
 | `vllm` | `vllm`, `vllm-omni`, torch +cu130 stack, PyAV | Running any vllm-omni-based example |
 | `sglang` | `sglang[diffusion]`, `checkpoint-engine`, `flash-attn-4`, `flash-linear-attention[conv1d]`, torch +cu130 stack, PyAV | SGLang-based AR/VLM and diffusion recipes |
-| `fastvideo` | FastVideo pinned to an upstream Git commit | FastVideo WAN 2.1 / 2.2 rollout recipes |
+| `fastvideo` | FastVideo pinned to an upstream Git commit | Declared for WAN 2.1 / 2.2 rollout; [installation currently blocked](#fastvideo-installation-blocker) |
 | `train` | `wandb`, `aiohttp`, `math-verify` | Training runs and local math-answer scoring |
-| `cosmos3` | `diffusers>=0.39` | [Cosmos3 SFT](unirl/models/cosmos3/README.md) |
+| `cosmos3` | `diffusers>=0.39` | [Cosmos3 SFT](unirl/models/cosmos3/README.md); apply the [version constraint](#cosmos3-version-prerequisite) |
 | `infer` | `accelerate`, `timm` | HunyuanImage3, Janus-Pro, and similar models |
 | `eval` | `torchvision`, `paddlepaddle`, `paddleocr`, `python-Levenshtein` | OCR-based reward components |
 | `veomni` | `veomni` | Recipes using the [VeOmni training backend](unirl/train/backend/veomni/) |
 | `dev` | `pytest`, `pytest-cov`, `ruff`, `pre-commit` | Local development |
 | `dataset-prep` | `datasets`, `pandas`, `pyarrow`, PyAV | Cooking a dataset with a converter under [`datasets/`](datasets/README.md) |
-
-Choose additional extras for the selected recipe. FastVideo uses the upstream
-source revision pinned in `pyproject.toml`; do not assume that its dependencies
-can be mixed with either engine environment above. For Cosmos3, check that the
-resolved diffusers version satisfies `>=0.39`, since the shared uv configuration
-also overrides the diffusers dependency.
 
 `dataset-prep` is independent of the engine extras — it carries no torch, so cooking in a
 bare venv works for every converter except `datasets/droid100/`, which needs torch as well
@@ -101,6 +97,55 @@ Use these pyproject-based installation paths for new environments. The legacy
 [`requirements.txt`](requirements.txt) and direct `setup.py` installation paths
 are not recommended: their dependency declarations differ from the current
 engine extras and do not replace uv's CUDA index and overrides.
+
+### FastVideo installation blocker
+
+The `fastvideo` extra is declared, but its
+[pinned upstream revision](https://github.com/hao-ai-lab/FastVideo/blob/2095477eac7e289c7a7ab13acb367ca60687c304/pyproject.toml)
+has incompatible dependency requirements: `transformers==4.57.3` conflicts
+with UniRL's base `transformers>=5.6,<5.7`, and `wandb>=0.21.0` conflicts with
+`train`'s `wandb>=0.16,<0.20`.
+
+Standard dependency resolution is therefore blocked for `.[fastvideo]`, even
+without selecting SGLang or vLLM; `.[fastvideo,train]` adds the W&B conflict.
+A separate virtual environment does not resolve these metadata conflicts.
+This path needs a compatible dependency set or a maintainer-validated
+installation procedure before it can be recommended. These conflicts were
+identified from dependency metadata, not a full installation attempt.
+
+### Cosmos3 version prerequisite
+
+The `cosmos3` extra declares `diffusers>=0.39`, but the shared uv override
+`diffusers>=0.38.0` [replaces dependency requirements](https://docs.astral.sh/uv/concepts/resolution/#dependency-overrides)
+rather than intersecting with the extra's stricter minimum. Selecting the extra
+alone does not guarantee that an existing diffusers 0.38 installation is upgraded.
+
+Create a constraint file, include `cosmos3` in the selected environment's extras,
+and append `--constraint "$COSMOS3_CONSTRAINTS"` to that installation command:
+
+```bash
+COSMOS3_CONSTRAINTS="$(mktemp)"
+printf '%s\n' 'diffusers>=0.39' > "$COSMOS3_CONSTRAINTS"
+```
+
+Keep applying this constraint when resolving dependencies for Cosmos3. After
+installation, check the version in the same activated environment:
+
+```bash
+python - <<'PY'
+from importlib.metadata import version
+from packaging.version import Version
+
+installed = version("diffusers")
+if Version(installed) < Version("0.39"):
+    raise SystemExit(f"Cosmos3 requires diffusers>=0.39; found {installed}")
+print(f"diffusers version prerequisite passed: {installed}")
+PY
+```
+
+This is a version prerequisite check, not a Cosmos3 runtime smoke test. The
+constraint prevents a resolution below the required minimum; a complete
+Cosmos3/engine installation and training run have not been validated here.
 
 ## Environment
 
