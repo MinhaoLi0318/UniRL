@@ -103,8 +103,10 @@ start it on the head node with `bash examples/mooncake_master.sh start` before l
 To save checkpoints, append `++save_interval=100 ++save_dir=checkpoints`;
 to resume, append `++load_dir=<checkpoint-dir>`. The `++` syntax adds a missing
 key or overrides an existing one, including `save_interval` in SFT recipes.
-This applies to diffusion/ar/sft/pe/unified/agentic trainers; the hi3 meta-init
-recipe is not yet supported. The full train → resume → export → upload lifecycle is in
+This applies to diffusion, AR, SFT, PE, unified, agentic, and async trainers.
+HI3 meta-init recipes such as [`unified_model/hi3_vllmomni`](unified_model/hi3_vllmomni.yaml)
+need `checkpoint_format=dcp`; the default `torch` format rejects never-materialized
+parameters. The full train → resume → export → upload lifecycle is in
 [Checkpointing](../unirl/trainer/README.md#checkpointing).
 
 ## WAN2.1 UCF-101 full-transformer SFT

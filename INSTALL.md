@@ -65,7 +65,7 @@ uv pip install -e ".[sglang,train,infer]" --prerelease=allow
 
 | Extra | Adds | Use when |
 |---|---|---|
-| `vllm` | `vllm`, `vllm-omni`, torch +cu130 stack, PyAV | Running any vllm-omni-based example |
+| `vllm` | `vllm`, `vllm-omni`, torch +cu130 stack, PyAV | vLLM and vLLM-Omni recipes |
 | `sglang` | `sglang[diffusion]`, `checkpoint-engine`, `flash-attn-4`, `flash-linear-attention[conv1d]`, torch +cu130 stack, PyAV | SGLang-based AR/VLM and diffusion recipes |
 | `fastvideo` | FastVideo pinned to an upstream Git commit | Declared for WAN 2.1 / 2.2 rollout; [installation currently blocked](#fastvideo-installation-blocker) |
 | `train` | `wandb`, `aiohttp`, `math-verify` | Training runs and local math-answer scoring |
