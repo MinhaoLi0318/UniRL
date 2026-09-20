@@ -45,10 +45,6 @@ GPU slabs. See [`examples/README.md`](examples/README.md#domains--entrypoints)
 for all entrypoints and [`unirl/README.md`](unirl/README.md) for the runtime loop,
 deployment modes, and module map.
 
-The agentic entrypoint extends the AR path with multi-turn tool interaction. It
-preserves each turn as a `Sample` lineage, scores terminal answers through a
-reward service, and trains at a colocated rollout barrier.
-
 ## Team-Proposed Algorithms 🌟
 
 > **🌟 These algorithms are proposed by our team — the highlight of UniRL.** Each
@@ -116,9 +112,9 @@ schema, and how to add a recipe.
 
 ## Agentic Workflows 🤖
 
-The agentic rollout engine repeatedly performs model generation followed by an
-environment step and returns a trajectory of `Sample` objects. The public
-workflow is `train_agentic` with
+`train_agentic` extends the AR path with multi-turn tool use. Each turn is a
+`Sample` in a lineage; terminal answers are scored by a reward service, and
+training waits at a colocated rollout barrier. The public recipe is
 [`deep_research/deep_research_search_judge`](examples/deep_research/deep_research_search_judge.yaml).
 
 `AgenticTrainer` synchronizes current training weights before every rollout,
