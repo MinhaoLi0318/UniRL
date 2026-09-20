@@ -4,8 +4,9 @@ Self-contained Hydra recipes — one YAML per experiment. A recipe is the single
 source of truth for a run: model, algorithm, rollout engine, placement, reward,
 weight sync, and batch geometry, each instantiated directly by `_target_` (no
 Hydra config-group overrides). Recipes are grouped by trainer domain or agentic
-workflow. Select one with `--config-name=diffusion/sd3/sd3_trainside` (path under
-`examples/`, no `.yaml`); keep every directory component.
+workflow. Select one with `--config-name` set to its path under `examples/`,
+without `.yaml`. Keep every directory — `diffusion/sd3/sd3_trainside`, not
+`sd3_trainside`.
 
 > This directory replaces the old top-level `recipes/` tree.
 
