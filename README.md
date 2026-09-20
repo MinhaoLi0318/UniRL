@@ -95,15 +95,10 @@ dimension; all listed models are supported (✅).
 
 </div>
 
-Choose the entrypoint that matches the selected recipe; see **Training Modes**
-below and the [launch guide](examples/README.md#running-a-recipe).
-
 ## Training Modes 🧩
 
-Select a recipe with `--config-name=<path-within-examples>` (without `.yaml`),
-including model subdirectories such as `diffusion/sd3/`. Each entrypoint has one
-built-in default, selected when `--config-name` is omitted. Defaults still require
-the recipe's model weights, data, dependencies, and GPU resources.
+Each entrypoint has one built-in default, used when `--config-name` is omitted.
+Nested recipe paths keep every directory, for example `diffusion/sd3/sd3_trainside`.
 
 | Training path | Trains | Entrypoint | Built-in default recipe |
 |---|---|---|---|
@@ -122,12 +117,9 @@ schema, and how to add a recipe.
 ## Agentic Workflows 🤖
 
 The agentic rollout engine repeatedly performs model generation followed by an
-environment step and returns a trajectory of `Sample` objects. One public
-workflow is supported:
-
-| Workflow | Entrypoint | Example recipe |
-|---|---|---|
-| Service-scored multi-turn tool use | `train_agentic` | [`deep_research/deep_research_search_judge`](examples/deep_research/deep_research_search_judge.yaml) |
+environment step and returns a trajectory of `Sample` objects. The public
+workflow is `train_agentic` with
+[`deep_research/deep_research_search_judge`](examples/deep_research/deep_research_search_judge.yaml).
 
 `AgenticTrainer` synchronizes current training weights before every rollout,
 dispatches sibling trajectories concurrently, and waits for complete GRPO groups

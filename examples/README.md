@@ -4,17 +4,16 @@ Self-contained Hydra recipes — one YAML per experiment. A recipe is the single
 source of truth for a run: model, algorithm, rollout engine, placement, reward,
 weight sync, and batch geometry, each instantiated directly by `_target_` (no
 Hydra config-group overrides). Recipes are grouped by trainer domain or agentic
-workflow; select one with `--config-name=<path-within-examples>` (drop the `.yaml`).
-Keep every directory component: for example, `diffusion/sd3/sd3_trainside`.
+workflow. Select one with `--config-name=diffusion/sd3/sd3_trainside` (path under
+`examples/`, no `.yaml`); keep every directory component.
 
 > This directory replaces the old top-level `recipes/` tree.
 
 ## Domains & entrypoints
 
-The **default recipe** is the entrypoint's single built-in
-`@hydra.main(config_name=...)` selection when `--config-name` is omitted.
-Async AR and diffusion use separate entrypoints within the same recipe
-directories as their synchronous counterparts.
+The **default recipe** is used when `--config-name` is omitted
+(`@hydra.main(config_name=...)` on the entrypoint). Async AR and diffusion have
+their own entrypoints; those recipes still live next to the sync ones.
 
 | Training path | Entrypoint | Built-in default recipe |
 |---|---|---|
@@ -27,42 +26,26 @@ directories as their synchronous counterparts.
 | Async AR RL | [`python -m unirl.train_async_ar`](../unirl/train_async_ar.py) | [`ar/qwen3_grpo_4b_base_dapo_sglang_async`](ar/qwen3_grpo_4b_base_dapo_sglang_async.yaml) |
 | Async diffusion RL | [`python -m unirl.train_async_diffusion`](../unirl/train_async_diffusion.py) | [`diffusion/bagel/bagel_vllmomni_async`](diffusion/bagel/bagel_vllmomni_async.yaml) |
 
-Defaults are not minimal hardware smoke tests: prepare the selected recipe's
-dependencies, model weights, data, reward services, and GPU resources first.
-For example, the AR default specifies 32 devices and requires `DATA_PATH`.
-See the [installation guide](../INSTALL.md) for engine environments and extras,
-and the [model guide](../unirl/models/README.md) for model integration details.
-
-Alternative recipes must be selected explicitly. For example,
-[`ar/qwen3_drpo_4b_base_dapo_sglang`](ar/qwen3_drpo_4b_base_dapo_sglang.yaml)
-uses `train_ar` but is not its default;
-[`pe/pe_sglang_full_pickscore`](pe/pe_sglang_full_pickscore.yaml) uses `train_pe`,
-whose default is the trainside recipe above. Agentic training uses the
-service-scored, colocated barrier workflow described in the
-[environment guide](../unirl/rollout/env/README.md).
+The AR default needs 32 GPUs and `DATA_PATH`. Engine extras are in
+[INSTALL.md](../INSTALL.md).
 
 ## Running a recipe
 
-The bash launchers live in this directory. The first argument is the
-full recipe path relative to `examples/`, without `.yaml` (passed to Hydra as
-`--config-name`); any extra args are forwarded verbatim as Hydra overrides.
-`ENTRY` selects the module name from the table above, such as `train_sft` or
-`train_async_ar`; it defaults to `train_diffusion`. The launcher does not infer
-the entrypoint from the recipe's directory or an `_async` suffix.
+Launchers live in this directory. The first argument is the recipe path under
+`examples/`, without `.yaml`. Extra args are Hydra overrides.
+`ENTRY` is the module name from the table (`train_sft`, `train_async_ar`, …)
+and defaults to `train_diffusion`; it is not inferred from the recipe path.
 
-Run commands from the repository root with the selected engine environment
-activated. Both launchers default to `pip install --no-deps -e .`, which does
-not install missing dependencies; prepare the environment on every node first.
+Run from the repository root in the engine environment from INSTALL.md.
+Launchers run `pip install --no-deps -e .` and will not install missing
+dependencies.
 
 ```bash
-# Compose-check first — use the entrypoint paired with your chosen recipe
+# Compose-check (no training). Pair the entrypoint with the recipe.
 python -m unirl.train_diffusion --config-name=diffusion/sd3/sd3_trainside --cfg job --resolve
 ```
 
 ```bash
-# Choose ONE launch command below for your selected recipe and prepared environment.
-# These examples are alternatives, not a sequence to execute.
-
 # Single node
 bash examples/run_experiment_single_node.sh diffusion/sd3/sd3_trainside
 ENTRY=train_ar bash examples/run_experiment_single_node.sh ar/qwen_vl_grpo_geo3k_mc_4x8
@@ -76,38 +59,28 @@ ENTRY=train_async_ar bash examples/run_experiment_single_node.sh ar/qwen3_grpo_4
 # Async diffusion: vLLM-Omni environment; set BAGEL_PATH to the model checkpoint.
 ENTRY=train_async_diffusion bash examples/run_experiment_single_node.sh diffusion/bagel/bagel_vllmomni_async
 
-# Multi-node alternative
+# Multi-node
 bash examples/run_experiment_multinode.sh diffusion/sd3/sd3_sglang_rollout_colocate
 
-# Or invoke an entrypoint directly, without the launchers
+# Direct entrypoint, without the launchers
 python -m unirl.train_diffusion --config-name=diffusion/sd3/sd3_trainside num_devices=8
 ```
 
-`--cfg job --resolve` checks config composition and interpolation without
-starting training; it does not verify model/data files or GPU compatibility.
-The entrypoint's imports still require its Python dependencies. To inspect only
-the launcher's command, prefix it with `DRY_RUN=1`; this skips config composition
-as well as execution. Launchers set `num_devices` from the node/cluster GPU count,
-but the selected recipe's batch and train/rollout partition constraints still
-have to hold.
+`DRY_RUN=1` prints the launcher command and skips compose and execution.
+Launchers set `num_devices` from the GPU count; the recipe's batch and
+train/rollout splits still have to fit.
 
-Pass cluster-local paths and W&B identity through the variables used by the
-selected YAML. Common names include `PRETRAINED_MODEL`,
-`DATA_PATH`, `EVAL_DATA_PATH`, `SFT_DATA`, `SFT_EVAL_DATA`, `REPORT_TO_WANDB`,
-`WANDB_PROJECT`, and `WANDB_ENTITY`. Only fields containing `${oc.env:...}` read
-those variables; use Hydra overrides for literal values, for example
-`logging.report_to_wandb=false` for `pe/pe_trainside_pickscore`.
-The mooncake-backed recipe (`*_tq_mooncake`) needs its metadata server up first —
-start it on the head node with `bash examples/mooncake_master.sh start` before launching.
+Cluster paths and W&B identity come from `${oc.env:...}` in the selected YAML
+(see [INSTALL.md](../INSTALL.md#environment)). Fields without that interpolation
+need a Hydra override, for example `logging.report_to_wandb=false` on
+`pe/pe_trainside_pickscore`. Start the mooncake metadata server before
+`*_tq_mooncake` recipes: `bash examples/mooncake_master.sh start`.
 
-To save checkpoints, append `++save_interval=100 ++save_dir=checkpoints`;
-to resume, append `++load_dir=<checkpoint-dir>`. The `++` syntax adds a missing
-key or overrides an existing one, including `save_interval` in SFT recipes.
-This applies to diffusion, AR, SFT, PE, unified, agentic, and async trainers.
-HI3 meta-init recipes such as [`unified_model/hi3_vllmomni`](unified_model/hi3_vllmomni.yaml)
-need `checkpoint_format=dcp`; the default `torch` format rejects never-materialized
-parameters. The full train → resume → export → upload lifecycle is in
-[Checkpointing](../unirl/trainer/README.md#checkpointing).
+To save: `++save_interval=100 ++save_dir=checkpoints`. To resume:
+`++load_dir=<checkpoint-dir>`. Use `++` so Hydra can add or override keys
+(SFT recipes already define `save_interval`). HI3 meta-init, including
+[`unified_model/hi3_vllmomni`](unified_model/hi3_vllmomni.yaml), needs DCP —
+see [Checkpointing](../unirl/trainer/README.md#checkpointing).
 
 ## WAN2.1 UCF-101 full-transformer SFT
 
@@ -182,7 +155,7 @@ with `${oc.env:...}`.
 
 ```bash
 # Compose the recipe and print the resolved config
-python -m unirl.train_<entry> --config-name=<path-within-examples> --cfg job --resolve
+python -m unirl.train_<entry> --config-name=<recipe-path> --cfg job --resolve
 
 # Python syntax check
 python -m compileall -q unirl

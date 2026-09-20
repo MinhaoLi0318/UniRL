@@ -1,31 +1,21 @@
 # Installation
 
-Use [`pyproject.toml`](pyproject.toml) as the source of truth for dependency
-versions and extras. It requires Python **>=3.12,<3.14** and configures uv for
-**Linux x86_64**; the training examples below target NVIDIA GPUs. Run installation
-commands from the repository root. The examples use Python 3.12.
+Install from the repository root with uv, using [`pyproject.toml`](pyproject.toml)
+for versions and extras. Python **>=3.12,<3.14**, Linux x86_64, NVIDIA GPUs.
+The commands below use Python 3.12. uv applies the CUDA index and dependency
+overrides in `pyproject.toml`; plain pip ignores `[tool.uv]`.
 
-The `vllm` and `sglang` extras have mutually exclusive PyTorch stacks — use a
-separate virtual environment for each and do not install `--all-extras`.
-FastVideo is a declared engine extra with a
-[known installation blocker](#fastvideo-installation-blocker).
+`vllm` and `sglang` pin incompatible PyTorch stacks — one extra per virtualenv,
+never `--all-extras`. `train` and `infer` do not pull a rollout engine.
 
 | Engine extra | PyTorch | CUDA |
 |---|---|---|
 | `vllm` (vLLM + vLLM-Omni) | `2.13.0+cu130` | 13.0 |
 | `sglang` | `2.11.0+cu130` | 13.0 |
 
-SGLang's wheel requires glibc >= 2.34. If your deployment uses NVIDIA's CUDA 13
-forward-compatibility layer, provision it in the image and add its library
-directory to `LD_LIBRARY_PATH` before launching. The launchers do not discover
-or load compatibility libraries automatically; setting `CUDA_COMPAT_DIR` alone
-does not configure the library search path.
-
-The commands below use uv so that the CUDA wheel index and dependency overrides
-in `pyproject.toml` apply. Plain pip does not automatically use `[tool.uv]`
-settings. The base dependencies do not pin an engine-specific PyTorch/CUDA
-stack. Installing only `train` or `infer` does not establish compatibility with
-a particular rollout engine.
+SGLang's wheel needs glibc >= 2.34. Put NVIDIA's CUDA 13 forward-compat
+libraries on `LD_LIBRARY_PATH` before launch; the launchers do not add them,
+including when `CUDA_COMPAT_DIR` is set.
 
 ## vllm-omni
 
@@ -67,7 +57,7 @@ uv pip install -e ".[sglang,train,infer]" --prerelease=allow
 |---|---|---|
 | `vllm` | `vllm`, `vllm-omni`, torch +cu130 stack, PyAV | vLLM and vLLM-Omni recipes |
 | `sglang` | `sglang[diffusion]`, `checkpoint-engine`, `flash-attn-4`, `flash-linear-attention[conv1d]`, torch +cu130 stack, PyAV | SGLang-based AR/VLM and diffusion recipes |
-| `fastvideo` | FastVideo pinned to an upstream Git commit | Declared for WAN 2.1 / 2.2 rollout; [installation currently blocked](#fastvideo-installation-blocker) |
+| `fastvideo` | FastVideo pinned to an upstream Git commit | WAN 2.1 / 2.2 rollout; [the extra does not currently resolve](#fastvideo-installation-blocker) |
 | `train` | `wandb`, `aiohttp`, `math-verify` | Training runs and local math-answer scoring |
 | `cosmos3` | `diffusers>=0.39` | [Cosmos3 SFT](unirl/models/cosmos3/README.md); apply the [version constraint](#cosmos3-version-prerequisite) |
 | `infer` | `accelerate`, `timm` | HunyuanImage3, Janus-Pro, and similar models |
@@ -80,10 +70,9 @@ uv pip install -e ".[sglang,train,infer]" --prerelease=allow
 bare venv works for every converter except `datasets/droid100/`, which needs torch as well
 (any engine extra supplies it; a plain `uv pip install torch` is enough for CPU-only prep).
 
-`eval` pulls PaddlePaddle, a second deep-learning framework needed to run
-the PP-OCRv5 detection and recognition models behind
-[`unirl.reward.local.ocr`](unirl/reward/local/ocr.py). It is deliberately kept out of
-`requirements.txt` for that reason, so install it explicitly when you need OCR rewards.
+`eval` pulls PaddlePaddle for the PP-OCRv5 models behind
+[`unirl.reward.local.ocr`](unirl/reward/local/ocr.py). It is not part of the
+engine extras; install it when you need OCR rewards.
 
 For development tools (lint and tests):
 
@@ -93,43 +82,35 @@ uv pip install -e ".[vllm,train,infer,eval,dev]" --prerelease=allow
 uv pip install -e ".[sglang,train,infer,eval,dev]" --prerelease=allow
 ```
 
-Use these pyproject-based installation paths for new environments. The legacy
-[`requirements.txt`](requirements.txt) and direct `setup.py` installation paths
-are not recommended: their dependency declarations differ from the current
-engine extras and do not replace uv's CUDA index and overrides.
+Prefer these extras over the legacy [`requirements.txt`](requirements.txt) and
+`setup.py` paths, which do not match the engine stacks or uv's CUDA index.
 
 ### FastVideo installation blocker
 
-The `fastvideo` extra is declared, but its
-[pinned upstream revision](https://github.com/hao-ai-lab/FastVideo/blob/2095477eac7e289c7a7ab13acb367ca60687c304/pyproject.toml)
-has incompatible dependency requirements: `transformers==4.57.3` conflicts
-with UniRL's base `transformers>=5.6,<5.7`, and `wandb>=0.21.0` conflicts with
-`train`'s `wandb>=0.16,<0.20`.
-
-Standard dependency resolution is therefore blocked for `.[fastvideo]`, even
-without selecting SGLang or vLLM; `.[fastvideo,train]` adds the W&B conflict.
-A separate virtual environment does not resolve these metadata conflicts.
-This path needs a compatible dependency set or a maintainer-validated
-installation procedure before it can be recommended. These conflicts were
-identified from dependency metadata, not a full installation attempt.
+The `fastvideo` extra pins
+[hao-ai-lab/FastVideo@2095477](https://github.com/hao-ai-lab/FastVideo/blob/2095477eac7e289c7a7ab13acb367ca60687c304/pyproject.toml),
+which requires `transformers==4.57.3` and `wandb>=0.21.0`. Those conflict with
+UniRL's `transformers>=5.6,<5.7` and `train`'s `wandb>=0.16,<0.20`, so
+`.[fastvideo]` does not resolve — a separate venv does not help, because UniRL's
+base deps still apply. Use `$FASTVIDEO_PATH` as in the
+[FastVideo engine README](unirl/rollout/engine/fastvideo/README.md) until the extra
+is solvable.
 
 ### Cosmos3 version prerequisite
 
-The `cosmos3` extra declares `diffusers>=0.39`, but the shared uv override
-`diffusers>=0.38.0` [replaces dependency requirements](https://docs.astral.sh/uv/concepts/resolution/#dependency-overrides)
-rather than intersecting with the extra's stricter minimum. Selecting the extra
-alone does not guarantee that an existing diffusers 0.38 installation is upgraded.
-
-Create a constraint file, include `cosmos3` in the selected environment's extras,
-and append `--constraint "$COSMOS3_CONSTRAINTS"` to that installation command:
+`cosmos3` asks for `diffusers>=0.39`, but uv's override `diffusers>=0.38.0`
+[replaces](https://docs.astral.sh/uv/concepts/resolution/#dependency-overrides)
+that floor instead of intersecting with it. Include `cosmos3` in the extras and
+pass `--constraint` when installing:
 
 ```bash
 COSMOS3_CONSTRAINTS="$(mktemp)"
 printf '%s\n' 'diffusers>=0.39' > "$COSMOS3_CONSTRAINTS"
+uv pip install -e ".[vllm,train,infer,cosmos3]" --prerelease=allow \
+    --constraint "$COSMOS3_CONSTRAINTS"
 ```
 
-Keep applying this constraint when resolving dependencies for Cosmos3. After
-installation, check the version in the same activated environment:
+After install, in the same environment:
 
 ```bash
 python - <<'PY'
@@ -143,16 +124,11 @@ print(f"diffusers version prerequisite passed: {installed}")
 PY
 ```
 
-This is a version prerequisite check, not a Cosmos3 runtime smoke test. The
-constraint prevents a resolution below the required minimum; a complete
-Cosmos3/engine installation and training run have not been validated here.
-
 ## Environment
 
-Example configs read cluster-local paths, checkpoints, data, and W&B settings from
-environment variables via `${oc.env:...}`. Check the selected YAML: a variable
-only affects fields that reference it; use Hydra overrides for literal values.
-Common variables:
+Recipes read cluster-local paths and W&B settings from `${oc.env:...}`. A
+variable only affects fields that reference it; use a Hydra override for
+literal values. Common names:
 
 | Variable | Purpose |
 |---|---|
@@ -166,6 +142,7 @@ Common variables:
 | `WANDB_PROJECT` | W&B project name |
 | `WANDB_ENTITY` | W&B entity / team |
 
-Sample prompt lists are committed under `datasets/`.
+Recipes also use model-specific names such as `BAGEL_PATH` and `LLM_MODEL`;
+check the selected YAML. Sample prompt lists are committed under `datasets/`.
 
 Once installed, see the [launch guide](examples/README.md#running-a-recipe) to run an experiment.
