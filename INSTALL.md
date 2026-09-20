@@ -5,8 +5,8 @@ for versions and extras. Python **>=3.12,<3.14**, Linux x86_64, NVIDIA GPUs.
 The commands below use Python 3.12. uv applies the CUDA index and dependency
 overrides in `pyproject.toml`; plain pip ignores `[tool.uv]`.
 
-`vllm` and `sglang` pin incompatible PyTorch stacks — one extra per virtualenv,
-never `--all-extras`. `train` and `infer` do not pull a rollout engine.
+`vllm` and `sglang` pin incompatible PyTorch stacks — one engine extra per
+virtualenv, never `--all-extras`. `train` and `infer` do not pull a rollout engine.
 
 | Engine extra | PyTorch | CUDA |
 |---|---|---|
@@ -14,8 +14,7 @@ never `--all-extras`. `train` and `infer` do not pull a rollout engine.
 | `sglang` | `2.11.0+cu130` | 13.0 |
 
 SGLang's wheel needs glibc >= 2.34. Put NVIDIA's CUDA 13 forward-compat
-libraries on `LD_LIBRARY_PATH` before launch; the launchers do not add them,
-including when `CUDA_COMPAT_DIR` is set.
+libraries on `LD_LIBRARY_PATH` before launch; the launchers do not do this.
 
 ## vllm-omni
 
@@ -30,7 +29,7 @@ uv pip install -e ".[vllm,train,infer]" --prerelease=allow
 uv venv --python 3.12 --seed .venv-sglang && source .venv-sglang/bin/activate
 ```
 
-This extra reaches `causal-conv1d` through `flash-linear-attention[conv1d]`,
+The `sglang` extra reaches `causal-conv1d` through `flash-linear-attention[conv1d]`,
 which has no wheel and compiles a CUDA extension. Torch refuses to build one
 against a different CUDA major than its own, so a CUDA 12 `nvcc` on `PATH` fails
 the install with a version-mismatch `RuntimeError`. Install the CUDA 13 compiler
@@ -89,10 +88,10 @@ Prefer these extras over the legacy [`requirements.txt`](requirements.txt) and
 
 The `fastvideo` extra pins
 [hao-ai-lab/FastVideo@2095477](https://github.com/hao-ai-lab/FastVideo/blob/2095477eac7e289c7a7ab13acb367ca60687c304/pyproject.toml),
-which requires `transformers==4.57.3` and `wandb>=0.21.0`. Those conflict with
-UniRL's `transformers>=5.6,<5.7` and `train`'s `wandb>=0.16,<0.20`, so
-`.[fastvideo]` does not resolve — a separate venv does not help, because UniRL's
-base deps still apply. Use `$FASTVIDEO_PATH` as in the
+which requires `transformers==4.57.3` and `wandb>=0.21.0`. The transformers pin
+conflicts with UniRL's `transformers>=5.6,<5.7`, so `.[fastvideo]` does not
+resolve — a separate venv does not help, because UniRL's base deps still apply.
+Adding `train` also conflicts on `wandb`. Use `$FASTVIDEO_PATH` as in the
 [FastVideo engine README](unirl/rollout/engine/fastvideo/README.md) until the extra
 is solvable.
 
@@ -108,20 +107,6 @@ COSMOS3_CONSTRAINTS="$(mktemp)"
 printf '%s\n' 'diffusers>=0.39' > "$COSMOS3_CONSTRAINTS"
 uv pip install -e ".[vllm,train,infer,cosmos3]" --prerelease=allow \
     --constraint "$COSMOS3_CONSTRAINTS"
-```
-
-After install, in the same environment:
-
-```bash
-python - <<'PY'
-from importlib.metadata import version
-from packaging.version import Version
-
-installed = version("diffusers")
-if Version(installed) < Version("0.39"):
-    raise SystemExit(f"Cosmos3 requires diffusers>=0.39; found {installed}")
-print(f"diffusers version prerequisite passed: {installed}")
-PY
 ```
 
 ## Environment

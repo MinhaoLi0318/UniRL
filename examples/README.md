@@ -26,7 +26,8 @@ their own entrypoints; those recipes still live next to the sync ones.
 | Async AR RL | [`python -m unirl.train_async_ar`](../unirl/train_async_ar.py) | [`ar/qwen3_grpo_4b_base_dapo_sglang_async`](ar/qwen3_grpo_4b_base_dapo_sglang_async.yaml) |
 | Async diffusion RL | [`python -m unirl.train_async_diffusion`](../unirl/train_async_diffusion.py) | [`diffusion/bagel/bagel_vllmomni_async`](diffusion/bagel/bagel_vllmomni_async.yaml) |
 
-The AR default needs 32 GPUs and `DATA_PATH`. Engine extras are in
+The AR default is written for 4×8 (32 GPUs) and requires `DATA_PATH`. Launchers
+override `num_devices` from the node GPU count. Engine extras are in
 [INSTALL.md](../INSTALL.md).
 
 ## Running a recipe
@@ -72,7 +73,7 @@ train/rollout splits still have to fit.
 
 Cluster paths and W&B identity come from `${oc.env:...}` in the selected YAML
 (see [INSTALL.md](../INSTALL.md#environment)). Fields without that interpolation
-need a Hydra override, for example `logging.report_to_wandb=false` on
+need a Hydra override, for example `logging.report_to_wandb=true` on
 `pe/pe_trainside_pickscore`. Start the mooncake metadata server before
 `*_tq_mooncake` recipes: `bash examples/mooncake_master.sh start`.
 

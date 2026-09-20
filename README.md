@@ -94,7 +94,6 @@ dimension; all listed models are supported (✅).
 ## Training Modes 🧩
 
 Each entrypoint has one built-in default, used when `--config-name` is omitted.
-Nested recipe paths keep every directory, for example `diffusion/sd3/sd3_trainside`.
 
 | Training path | Trains | Entrypoint | Built-in default recipe |
 |---|---|---|---|
@@ -114,8 +113,7 @@ schema, and how to add a recipe.
 
 `train_agentic` extends the AR path with multi-turn tool use. Each turn is a
 `Sample` in a lineage; terminal answers are scored by a reward service, and
-training waits at a colocated rollout barrier. The public recipe is
-[`deep_research/deep_research_search_judge`](examples/deep_research/deep_research_search_judge.yaml).
+training waits at a colocated rollout barrier.
 
 `AgenticTrainer` synchronizes current training weights before every rollout,
 dispatches sibling trajectories concurrently, and waits for complete GRPO groups
