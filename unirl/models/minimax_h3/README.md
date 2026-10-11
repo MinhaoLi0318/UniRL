@@ -17,13 +17,8 @@
 - **A batch with `keyframes` needs an entry for every sample.** A t2va sample's entry is anchors `()`,
   `torch.empty(0, 96)` fp32 rows and all-text tags, which `build_layout` turns into exactly the t2va layout.
   A producer emits an entry for every sample or for none; `MiniMaxH3Conditions` rejects a `keyframes` sample
-  count that differs from `text`, and a mix in `Part.conditions` fails closed (next Gotcha).
-- **`Part.conditions["text"]` is a `MiniMaxH3KeyframedText` exactly when `keyframes` is set.** `Part.concat`
-  drops the `keyframes` key of a sample that has none, which would silently shift every later sample onto
-  the next sample's entry. `to_dict` sets the type and `from_dict` checks it. A mixed concat raises in
-  `MiniMaxH3KeyframedText.concat` when a keyframe sample comes first; when a sample without keyframes comes
-  first, the result has plain `text` next to `keyframes`. Every view of that batch then fails: `from_dict`
-  rejects the whole batch and its slices and chunks, and a `select` can already raise `IndexError` inside
-  `Batch` indexing.
+  count that differs from `text`, and `Batch.concat` (#582) rejects a `Part.conditions` merge in which a
+  non-empty sample lacks the `keyframes` key, which would otherwise shift every later sample onto the next
+  sample's entry.
 - **`text_token_tags` are stored unpadded.** `trim_text_padding` must run before `build_layout`, which
   checks the tag length against the trimmed text.

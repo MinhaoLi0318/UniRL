@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields, replace
-from typing import ClassVar, List, Optional, Sequence, Tuple
+from dataclasses import dataclass, replace
+from typing import ClassVar, List, Optional, Tuple
 
 import torch
 
@@ -31,20 +31,6 @@ class MiniMaxH3KeyframeCondition(Condition):
 
 
 @dataclass
-class MiniMaxH3KeyframedText(TextEmbedCondition):
-    """``Part.conditions["text"]`` of samples that carry ``keyframes``; see ``README.md`` Gotchas."""
-
-    @classmethod
-    def concat(cls, items: Sequence[TextEmbedCondition]) -> "MiniMaxH3KeyframedText":
-        require(
-            all(isinstance(item, cls) for item in items),
-            "MiniMaxH3KeyframedText.concat: a sample without keyframes is concatenated with samples that carry "
-            "them; a batch with keyframes needs an entry for every sample, anchors () for a t2va one (README.md Gotchas)",
-        )
-        return super().concat(items)
-
-
-@dataclass
 class MiniMaxH3Conditions(Batch):
     """Conditions passed to the MiniMax-H3 diffusion stage."""
 
@@ -68,21 +54,10 @@ class MiniMaxH3Conditions(Batch):
 
     @classmethod
     def from_dict(cls, d: dict) -> "MiniMaxH3Conditions":
-        slots = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
-        text, has_keyframes = slots.get("text"), slots.get("keyframes") is not None
-        require(
-            isinstance(text, MiniMaxH3KeyframedText) == has_keyframes,
-            f"MiniMaxH3Conditions.from_dict: text is {type(text).__name__} but keyframes is "
-            f"{'set' if has_keyframes else 'absent'}; to_dict stores MiniMaxH3KeyframedText exactly when keyframes is "
-            f"set, so samples without keyframes were concatenated with samples that carry them (README.md Gotchas)",
-        )
-        return cls(**slots)
+        return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
 
     def to_dict(self) -> dict:
-        d = {name: value for name in self.__dataclass_fields__ if (value := getattr(self, name)) is not None}
-        if self.keyframes is not None:
-            d["text"] = MiniMaxH3KeyframedText(**{f.name: getattr(self.text, f.name) for f in fields(self.text)})
-        return d
+        return {name: value for name in self.__dataclass_fields__ if (value := getattr(self, name)) is not None}
 
     def trim_text_padding(self) -> "MiniMaxH3Conditions":
         """Remove right-padding before building the packed H3 sequence."""
